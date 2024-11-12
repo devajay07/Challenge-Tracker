@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Challenge Tracker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+            background-color: #1b1b1b;
+            /* Dark background */
+            color: #e0e0e0;
+            /* Light text for contrast */
+        }
+
+        .progress-container {
+            margin-bottom: 30px;
+            text-align: end;
+            font-size: 0.1rem;
+            margin-top: -40px;
+        }
+
+        progress {
+            width: 80%;
+            height: 4px;
+            border-radius: 2px;
+            background-color: #e0e0e0;
+            appearance: none;
+        }
+
+        progress::-webkit-progress-bar {
+            background-color: #e0e0e0;
+            border-radius: 2px;
+        }
+
+        progress::-webkit-progress-value {
+            background-color: #4caf50;
+            border-radius: 2px;
+        }
+
+        progress::-moz-progress-bar {
+            background-color: #4caf50;
+            border-radius: 2px;
+        }
+
+        h1 {
+            color: #ffffff;
+            text-align: center;
+        }
+
+        .date-container {
+            margin-bottom: 10px;
+            margin-top: -10px;
+        }
+
+        .date-container label,
+        .date-container input {
+            font-size: 1rem;
+            margin-right: 10px;
+        }
+
+        .current-day {
+            border: 2px solid #ff9800;
+            background-color: #fff3e0;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(10, 60px);
+            /* 10 columns */
+            gap: 40px 40px;
+            /* Increase horizontal and vertical spacing */
+            margin-top: 50px;
+            justify-content: center;
+        }
+
+        .day {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #fbfbfb;
+            color: #2d2d2d;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .day.completed {
+            background-color: #4caf50;
+            color: #151515;
+        }
+
+        .note {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #e9e9e9;
+        }
+
+        .button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #ee6e6e;
+            color: #fff;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Challenge Tracker</h1>
+
+    <!-- Date inputs -->
+    <div class="date-container">
+        <label for="start-date">Start Date:</label>
+        <input type="date" id="start-date" />
+        <label for="end-date">End Date:</label>
+        <input type="date" id="end-date" />
+        <button class="button" onclick="saveDates()">Save Dates</button>
+        <button class="button" onclick="resetChallenge()">Reset Challenge</button> <!-- Reset button -->
+    </div>
+    </div>
+
+    <div class="progress-container"></div>
+    <p><span id="progress-text">0%</span></p>
+    <progress id="progress-bar" value="0" max="100"></progress>
+    </div>
+    <!-- 60-day challenge grid -->
+    <div class="grid" id="challenge-grid">
+        <!--  (blocks) will be generated here -->
+    </div>
+
+    <p class="note">
+        Click on each block to mark it as completed. Your progress will be saved
+        automatically.
+    </p>
+    <!-- Modal -->
+    <div id="resetModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <h3>Are you sure you want to reset the challenge?</h3>
+            <button onclick="confirmReset()">Yes, reset</button>
+            <button onclick="closeModal()">Cancel</button>
+        </div>
+    </div>
+
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 20px;
+            margin: 15% auto;
+            border-radius: 5px;
+            width: 300px;
+            text-align: center;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 25px;
+            cursor: pointer;
+        }
+    </style>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            loadDates();
+            createGrid();
+            updateProgressBar(); // Update progress bar on page load
+        });
+        // Highlight current day
+        function highlightCurrentDay() {
+            const currentDayBlock = document.querySelectorAll(".day");
+            const today = new Date();
+            const startDate = new Date(document.getElementById("start-date").value);
+            const currentDayIndex = Math.floor((today - startDate) / (1000 * 3600 * 24));
+
+            if (currentDayIndex >= 0 && currentDayIndex < currentDayBlock.length) {
+                currentDayBlock[currentDayIndex].classList.add("current-day");
+            }
+        }
+
+        // Create grid dynamically based on the number of days between start and end date
+        function createGrid() {
+            const grid = document.getElementById("challenge-grid");
+            grid.innerHTML = ""; // Clear any existing blocks
+
+            const startDateValue = document.getElementById("start-date").value;
+            const endDateValue = document.getElementById("end-date").value;
+
+            if (!startDateValue || !endDateValue) {
+                alert("Please select both start and end dates.");
+                return;
+            }
+
+            const startDate = new Date(startDateValue);
+            const endDate = new Date(endDateValue);
+
+            // Calculate the number of days between start and end date
+            const timeDifference = endDate.getTime() - startDate.getTime();
+            const totalDays = Math.ceil(timeDifference / (1000 * 3600 * 24)) + 1;
+
+            // Generate blocks for each day
+            for (let i = 0; i < totalDays; i++) {
+                const currentDate = new Date(startDate);
+                currentDate.setDate(startDate.getDate() + i);
+
+                // Get the day of the month for each block (e.g., 15, 16, 17)
+                const dayOfMonth = currentDate.getDate();
+                const dayBlock = document.createElement("div");
+                dayBlock.className = "day";
+                dayBlock.innerText = dayOfMonth;
+
+                highlightCurrentDay();
+                // Mark as completed if saved in localStorage
+                if (localStorage.getItem("day" + i) === "true") {
+                    dayBlock.classList.add("completed");
+                }
+
+                // Check if it's the current day
+                const today = new Date();
+                const currentDayIndex = Math.floor((today - startDate) / (1000 * 3600 * 24));
+
+                // Toggle completion on click
+                dayBlock.addEventListener("click", function () {
+                    dayBlock.classList.toggle("completed");
+                    localStorage.setItem("day" + i, dayBlock.classList.contains("completed"));
+                    updateProgressBar(); // Update progress bar when a block is clicked
+                });
+
+                grid.appendChild(dayBlock);
+            }
+
+            loadProgress(); // Call loadProgress after the grid is created
+
+        }
+
+        // Update the progress bar based on the completed days
+        function updateProgressBar() {
+            let completedDays = 0;
+            const totalDays = document.querySelectorAll(".day").length;
+
+            for (let i = 0; i < totalDays; i++) {
+                if (localStorage.getItem("day" + i) === "true") {
+                    completedDays++;
+                }
+            }
+
+            const progressPercentage = (completedDays / totalDays) * 100;
+            const progressBar = document.getElementById("progress-bar");
+            const progressText = document.getElementById("progress-text");
+
+            progressBar.value = progressPercentage;
+            progressText.textContent = `${Math.round(progressPercentage)}%`;
+        }
+
+        // Save start and end dates to local storage
+        function saveDates() {
+            const startDate = document.getElementById("start-date").value;
+            const endDate = document.getElementById("end-date").value;
+            localStorage.setItem("startDate", startDate);
+            localStorage.setItem("endDate", endDate);
+            alert("Dates saved!");
+            createGrid(); // Recreate the grid after saving the dates
+            updateProgressBar(); // Update the progress bar after saving the dates
+        }
+
+        // Load start and end dates from local storage
+        function loadDates() {
+            const startDate = localStorage.getItem("startDate");
+            const endDate = localStorage.getItem("endDate");
+            if (startDate) document.getElementById("start-date").value = startDate;
+            if (endDate) document.getElementById("end-date").value = endDate;
+        }
+
+        // Load completion status of each day from local storage
+        function loadProgress() {
+            const dayBlocks = document.querySelectorAll(".day");
+            for (let i = 0; i < dayBlocks.length; i++) {
+                if (localStorage.getItem("day" + i) === "true") {
+                    dayBlocks[i].classList.add("completed");
+                }
+            }
+            updateProgressBar(); // Update progress bar after loading progress
+        }
+        function resetChallenge() {
+            // Open the reset confirmation modal
+            document.getElementById('resetModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('resetModal').style.display = 'none';
+        }
+
+        function confirmReset() {
+            localStorage.clear();
+            createGrid();
+            updateProgressBar();
+            closeModal();
+        }
+    </script>
+</body>
+
+</html>
